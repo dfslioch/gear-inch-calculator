@@ -35,6 +35,8 @@ const FlipFlopSide = Object.freeze({ A: 'A', B: 'B' });
 // bsd and width values are in microns.
 
 const RimLibrary = Object.freeze([
+  { name: '32ers',                bsd: 686000 },
+  { name: '750d Gravel',          bsd: 660000 },
   { name: '700c / 29er',          bsd: 622000 },
   { name: '650b / 27.5"',         bsd: 584000 },
   { name: '650c',                 bsd: 571000 },
@@ -84,7 +86,9 @@ const TyreLibrary = Object.freeze([
 ]);
 
 const CrankLengths = Object.freeze([
+  { name: '160mm',   microns: 160000 },
   { name: '165mm',   microns: 165000 },
+  { name: '167.5mm', microns: 167500 },
   { name: '170mm',   microns: 170000 },
   { name: '172.5mm', microns: 172500 },
   { name: '175mm',   microns: 175000 },
