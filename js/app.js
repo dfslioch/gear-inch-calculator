@@ -3,7 +3,18 @@
 // AppState holds the single in-memory Stable. All mutations update AppState
 // then call DB.save() to persist.
 
-const AppState = { stable: null };
+const AppState = { stable: null, maintBikeId: null };
+
+// ── Feature gate ──────────────────────────────────────────────────────────────
+
+function isMaintenanceEnabled() {
+  return (AppState.stable?.bicycles || []).some(b => b.name.toLowerCase() === 'admin');
+}
+
+function updateMaintenanceGate() {
+  const btn = document.getElementById('nav-maintenance');
+  if (btn) btn.hidden = !isMaintenanceEnabled();
+}
 
 // ── Parts pool migration ──────────────────────────────────────────────────────
 // For NONE bikes saved before pools were added, auto-populate from hub / crankSet.
@@ -46,7 +57,7 @@ function migrateNoneBikePools(stable) {
 let stableSubTab = 'bikes';   // 'bikes' | 'wheelsets'
 
 // Library collapse state — persists across re-renders within a session
-const libraryCollapsed = { 'rim-body': true, 'tyre-body': true, 'crank-body': true };
+const libraryCollapsed = { 'rim-body': true, 'tyre-body': true, 'crank-body': true, 'comp-body': true };
 
 function renderStableView() {
   const subNav = `<div class="sub-nav">
@@ -542,6 +553,27 @@ function renderLibraryView() {
     crankItems, addForm('add-crank-form', `
       <div class="form-row"><label>Name</label><input id="crank-name" type="text" placeholder="e.g. 167.5mm" autocomplete="off"></div>
       <div class="form-row"><label>Length (mm)</label><input id="crank-len" type="number" placeholder="e.g. 167.5" inputmode="decimal" step="0.5"></div>`))
+  + (() => {
+    if (!isMaintenanceEnabled()) return '';
+    const compEntries = [
+      ...ComponentLibrary.map(c => ({ ...c, customIdx: null })),
+      ...(s.customComponents || []).map((c, i) => ({ ...c, customIdx: i })),
+    ].sort((a, b) => a.name.localeCompare(b.name));
+    const compItems = compEntries.map(c =>
+      libItem(c.name, `${c.defaultLife} ${c.lifeUnit}`, 'del-comp', c.customIdx)).join('');
+    return section('Components', 'comp-body', 'add-comp-form', compItems,
+      addForm('add-comp-form', `
+        <div class="form-row"><label>Name</label><input id="comp-name" type="text" placeholder="e.g. Tyres" autocomplete="off"></div>
+        <div class="form-row"><label>Default life</label><input id="comp-life" type="number" placeholder="e.g. 3000" min="1"></div>
+        <div class="form-row"><label>Unit</label>
+          <select id="comp-unit">
+            <option value="km">km</option>
+            <option value="mi">miles</option>
+            <option value="months">months</option>
+            <option value="years">years</option>
+          </select>
+        </div>`));
+  })()
   + `<aside class="help-text">
       <p>The library holds the rim sizes, tyre widths, and crank lengths available when building bikes and wheelsets. Built-in entries cover the most common standards and cannot be deleted.</p>
       <p>Add custom entries for less common sizes — they appear alongside the built-in list and can be removed at any time.</p>
@@ -597,6 +629,12 @@ function wireLibraryEvents() {
         const lenMm = parseFloat(document.getElementById('crank-len').value);
         if (!name || !(lenMm > 0)) { alert('Please enter a name and a valid length.'); return; }
         s.customCranks.push({ name, microns: Math.round(lenMm * 1000) });
+      } else if (form.id === 'add-comp-form') {
+        const name        = document.getElementById('comp-name').value.trim();
+        const defaultLife = parseFloat(document.getElementById('comp-life').value);
+        const lifeUnit    = document.getElementById('comp-unit').value;
+        if (!name || !(defaultLife > 0)) { alert('Please enter a name and a valid life.'); return; }
+        s.customComponents.push({ name, defaultLife, lifeUnit });
       }
 
       await DB.save(s);
@@ -613,6 +651,7 @@ function wireLibraryEvents() {
       if      (action === 'del-rim')   s.customRims.splice(idx, 1);
       else if (action === 'del-tyre')  s.customTyres.splice(idx, 1);
       else if (action === 'del-crank') s.customCranks.splice(idx, 1);
+      else if (action === 'del-comp')  s.customComponents.splice(idx, 1);
       await DB.save(s);
       showView('library');
     });
@@ -1143,12 +1182,325 @@ function showEditWheelsetForm(wheelsetId) {
   );
 }
 
+// ── View: Maintenance ─────────────────────────────────────────────────────────
+
+function componentStatus(comp, bike) {
+  const today = new Date();
+  let pct = 0;
+  const unit = comp.lifeUnit;
+  if (unit === 'km' || unit === 'mi') {
+    if (comp.installedAt === null || !comp.expectedLife) return null;
+    pct = (bike.odometer - comp.installedAt) / comp.expectedLife;
+  } else {
+    if (!comp.installedDate || !comp.expectedLife) return null;
+    const installed = new Date(comp.installedDate);
+    let elapsed;
+    if (unit === 'days')   elapsed = (today - installed) / 86400000;
+    if (unit === 'months') elapsed = (today - installed) / (86400000 * 30.44);
+    if (unit === 'years')  elapsed = (today - installed) / (86400000 * 365.25);
+    pct = elapsed / comp.expectedLife;
+  }
+  if (pct < 0.75) return 'green';
+  if (pct < 0.95) return 'orange';
+  return 'red';
+}
+
+function componentProgressText(comp, bike) {
+  const unit = comp.lifeUnit;
+  if (unit === 'km' || unit === 'mi') {
+    if (comp.installedAt === null) return `Installed ${comp.installedDate}`;
+    const used = Math.max(0, bike.odometer - comp.installedAt);
+    return `${used.toLocaleString()} / ${comp.expectedLife.toLocaleString()} ${unit}`;
+  }
+  const today     = new Date();
+  const installed = new Date(comp.installedDate);
+  let elapsed, label;
+  if (unit === 'days')   { elapsed = Math.floor((today - installed) / 86400000);          label = 'days'; }
+  if (unit === 'months') { elapsed = Math.floor((today - installed) / (86400000 * 30.44)); label = 'months'; }
+  if (unit === 'years')  { elapsed = +((today - installed) / (86400000 * 365.25)).toFixed(1); label = 'years'; }
+  return `${elapsed} / ${comp.expectedLife} ${label}`;
+}
+
+function renderMaintenanceView() {
+  const s = AppState.stable;
+  if (!s.bicycles.length) {
+    return `<p class="detail-empty">Add bikes to your stable to use Maintenance tracking.</p>`;
+  }
+
+  const bikeOptions = s.bicycles.map(b =>
+    `<option value="${b.id}">${escHtml(b.name)}</option>`).join('');
+
+  // Remember selected bike across re-renders
+  const selId  = AppState.maintBikeId && s.bicycles.find(b => b.id === AppState.maintBikeId)
+    ? AppState.maintBikeId : s.bicycles[0].id;
+  const bike   = s.bicycles.find(b => b.id === selId);
+  const unit   = s.distanceUnit;
+
+  // Components sorted: red first, then orange, then green, then no-status
+  const order = { red: 0, orange: 1, green: 2, null: 3 };
+  const sorted = [...(bike.components || [])].sort((a, b) => {
+    const sa = componentStatus(a, bike) ?? 'null';
+    const sb = componentStatus(b, bike) ?? 'null';
+    return (order[sa] ?? 3) - (order[sb] ?? 3);
+  });
+
+  const compRows = sorted.map(comp => {
+    const status   = componentStatus(comp, bike);
+    const dotClass = status ? `status-dot status-${status}` : 'status-dot' ;
+    const dotStyle = status ? '' : 'background:#ccc';
+    const progress = componentProgressText(comp, bike);
+    return `<div class="component-row" data-comp-id="${comp.id}">
+      <span class="${dotClass}" ${dotStyle ? `style="${dotStyle}"` : ''}></span>
+      <div class="component-info">
+        <div class="component-name">${escHtml(comp.name)}</div>
+        <div class="component-progress">${progress}${comp.notes ? ' · ' + escHtml(comp.notes) : ''}</div>
+      </div>
+      <div class="component-actions">
+        <button class="btn-sm" data-action="replace-comp" data-comp="${comp.id}">Replace</button>
+        <button class="btn-sm danger" data-action="del-comp-bike" data-comp="${comp.id}">&#x2715;</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  // History: all components' history merged and sorted newest-first
+  const allHistory = [];
+  for (const comp of (bike.components || [])) {
+    for (const h of (comp.history || [])) {
+      allHistory.push({ ...h, compName: comp.name });
+    }
+  }
+  allHistory.sort((a, b) => b.date.localeCompare(a.date));
+  const historyRows = allHistory.map(h =>
+    `<div class="history-entry">
+      <span class="history-date">${h.date}</span>
+      <span>${escHtml(h.compName)} replaced${h.odometer !== null ? ` at ${h.odometer.toLocaleString()} ${unit}` : ''}${h.notes ? ' — ' + escHtml(h.notes) : ''}</span>
+    </div>`).join('');
+
+  // Component library dropdown
+  const libOptions = getComponentLibrary(s).map(c =>
+    `<option value="${escHtml(c.name)}" data-life="${c.defaultLife}" data-unit="${c.lifeUnit}">${escHtml(c.name)}</option>`
+  ).join('');
+
+  return `
+    <div class="maint-settings">
+      <div class="form-row" style="margin:0;flex:1">
+        <label for="maint-bike">Bike</label>
+        <select id="maint-bike">${bikeOptions.replace(`value="${selId}"`, `value="${selId}" selected`)}</select>
+      </div>
+      <div class="form-row" style="margin:0">
+        <label for="maint-unit">Unit</label>
+        <select id="maint-unit">
+          <option value="km"${unit === 'km' ? ' selected' : ''}>km</option>
+          <option value="mi"${unit === 'mi' ? ' selected' : ''}>miles</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="maint-odometer">
+      <label for="maint-odo"><strong>${escHtml(bike.name)}</strong> odometer</label>
+      <input id="maint-odo" type="number" value="${bike.odometer}" min="0" style="width:8rem">
+      <span>${unit}</span>
+      <button id="btn-save-odo" class="btn-sm btn-primary">Update</button>
+    </div>
+
+    <p class="maint-section-heading" style="margin-top:1.25rem">Components</p>
+    ${sorted.length ? compRows : '<p class="detail-empty">No components tracked yet.</p>'}
+
+    <button id="btn-add-comp" class="btn-sm btn-primary" style="margin-top:0.75rem">+ Add component</button>
+    <div id="add-comp-form" class="replace-form" hidden>
+      <div class="form-row">
+        <label>Component</label>
+        <select id="comp-lib-pick">${libOptions}</select>
+      </div>
+      <div class="form-row"><label>Custom name (optional override)</label>
+        <input id="comp-custom-name" type="text" placeholder="Leave blank to use library name" autocomplete="off">
+      </div>
+      <div class="form-row"><label>Expected life</label>
+        <input id="comp-exp-life" type="number" min="1">
+      </div>
+      <div class="form-row"><label>Unit</label>
+        <select id="comp-life-unit">
+          <option value="km">km</option>
+          <option value="mi">miles</option>
+          <option value="months">months</option>
+          <option value="years">years</option>
+        </select>
+      </div>
+      <div class="form-row"><label>Install date</label>
+        <input id="comp-inst-date" type="date" value="${new Date().toISOString().slice(0,10)}">
+      </div>
+      <div class="form-row" id="comp-inst-odo-row">
+        <label>Install odometer (${unit})</label>
+        <input id="comp-inst-odo" type="number" value="${bike.odometer}" min="0">
+      </div>
+      <div class="form-row"><label>Notes</label>
+        <input id="comp-notes" type="text" placeholder="Optional" autocomplete="off">
+      </div>
+      <div class="library-add-actions">
+        <button class="btn-secondary" id="cancel-add-comp">Cancel</button>
+        <button class="btn-primary"   id="save-add-comp">Add</button>
+      </div>
+    </div>
+
+    <div id="replace-form-container"></div>
+
+    <div class="history-section">
+      <button class="history-toggle" id="btn-history-toggle">
+        <span id="history-chevron">&#9654;</span> Maintenance history (${allHistory.length})
+      </button>
+      <div id="history-body" hidden>
+        ${allHistory.length ? historyRows : '<p class="detail-empty" style="margin-top:0.5rem">No history yet.</p>'}
+      </div>
+    </div>`;
+}
+
+function wireMaintenanceEvents() {
+  const s       = AppState.stable;
+  const refresh = () => showView('maintenance');
+  const save    = () => DB.save(s);
+
+  const bikeSelect = document.getElementById('maint-bike');
+  if (!bikeSelect) return;
+
+  // Track selected bike
+  AppState.maintBikeId = bikeSelect.value;
+  bikeSelect.addEventListener('change', () => {
+    AppState.maintBikeId = bikeSelect.value;
+    refresh();
+  });
+
+  // Distance unit
+  document.getElementById('maint-unit')?.addEventListener('change', async e => {
+    s.distanceUnit = e.target.value;
+    await save(); refresh();
+  });
+
+  // Odometer update
+  document.getElementById('btn-save-odo')?.addEventListener('click', async () => {
+    const bike = s.bicycles.find(b => b.id === AppState.maintBikeId);
+    if (!bike) return;
+    const val = parseFloat(document.getElementById('maint-odo').value);
+    if (!(val >= 0)) { alert('Please enter a valid odometer reading.'); return; }
+    bike.odometer = val;
+    await save(); refresh();
+  });
+
+  // History toggle
+  document.getElementById('btn-history-toggle')?.addEventListener('click', () => {
+    const body    = document.getElementById('history-body');
+    const chevron = document.getElementById('history-chevron');
+    body.hidden   = !body.hidden;
+    chevron.textContent = body.hidden ? '▶' : '▼';
+  });
+
+  // Add component — toggle form
+  document.getElementById('btn-add-comp')?.addEventListener('click', () => {
+    const form = document.getElementById('add-comp-form');
+    form.hidden = !form.hidden;
+  });
+
+  // Pre-fill life/unit when library pick changes
+  document.getElementById('comp-lib-pick')?.addEventListener('change', e => {
+    const opt  = e.target.selectedOptions[0];
+    const life = opt.dataset.life;
+    const unit = opt.dataset.unit;
+    if (life) document.getElementById('comp-exp-life').value = life;
+    if (unit) {
+      document.getElementById('comp-life-unit').value = unit;
+      const isDistance = unit === 'km' || unit === 'mi';
+      document.getElementById('comp-inst-odo-row').hidden = !isDistance;
+    }
+  });
+  // Trigger once to set initial state
+  document.getElementById('comp-lib-pick')?.dispatchEvent(new Event('change'));
+
+  // Toggle odo row when life unit changes
+  document.getElementById('comp-life-unit')?.addEventListener('change', e => {
+    const isDistance = e.target.value === 'km' || e.target.value === 'mi';
+    document.getElementById('comp-inst-odo-row').hidden = !isDistance;
+  });
+
+  document.getElementById('cancel-add-comp')?.addEventListener('click', () => {
+    document.getElementById('add-comp-form').hidden = true;
+  });
+
+  document.getElementById('save-add-comp')?.addEventListener('click', async () => {
+    const bike      = s.bicycles.find(b => b.id === AppState.maintBikeId);
+    if (!bike) return;
+    const pickName  = document.getElementById('comp-lib-pick').value;
+    const custom    = document.getElementById('comp-custom-name').value.trim();
+    const name      = custom || pickName;
+    const life      = parseFloat(document.getElementById('comp-exp-life').value);
+    const lifeUnit  = document.getElementById('comp-life-unit').value;
+    const instDate  = document.getElementById('comp-inst-date').value;
+    const isDistance = lifeUnit === 'km' || lifeUnit === 'mi';
+    const instOdo   = isDistance ? parseFloat(document.getElementById('comp-inst-odo').value) : null;
+    const notes     = document.getElementById('comp-notes').value.trim();
+    if (!name || !(life > 0)) { alert('Please enter a component name and expected life.'); return; }
+    bike.components.push(makeComponent({ name, expectedLife: life, lifeUnit, installedAt: instOdo, installedDate: instDate, notes }));
+    await save(); refresh();
+  });
+
+  // Replace component
+  document.querySelectorAll('[data-action="replace-comp"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const compId    = btn.dataset.comp;
+      const container = document.getElementById('replace-form-container');
+      const today     = new Date().toISOString().slice(0, 10);
+      const bike      = s.bicycles.find(b => b.id === AppState.maintBikeId);
+      const unit      = s.distanceUnit;
+      container.innerHTML = `
+        <div class="replace-form" id="replace-form-${compId}">
+          <strong>Record replacement</strong>
+          <div class="form-row"><label>Date</label><input type="date" id="rep-date-${compId}" value="${today}"></div>
+          <div class="form-row"><label>Current odometer (${unit})</label>
+            <input type="number" id="rep-odo-${compId}" value="${bike?.odometer ?? 0}" min="0"></div>
+          <div class="form-row"><label>Notes</label>
+            <input type="text" id="rep-notes-${compId}" placeholder="Optional" autocomplete="off"></div>
+          <div class="library-add-actions">
+            <button class="btn-secondary" id="rep-cancel-${compId}">Cancel</button>
+            <button class="btn-primary"   id="rep-save-${compId}">Confirm replacement</button>
+          </div>
+        </div>`;
+
+      document.getElementById(`rep-cancel-${compId}`)?.addEventListener('click', () => {
+        container.innerHTML = '';
+      });
+      document.getElementById(`rep-save-${compId}`)?.addEventListener('click', async () => {
+        if (!bike) return;
+        const comp    = bike.components.find(c => c.id === compId);
+        if (!comp) return;
+        const date    = document.getElementById(`rep-date-${compId}`).value;
+        const odo     = parseFloat(document.getElementById(`rep-odo-${compId}`).value);
+        const notes   = document.getElementById(`rep-notes-${compId}`).value.trim();
+        const isDistance = comp.lifeUnit === 'km' || comp.lifeUnit === 'mi';
+        comp.history.push({ date, odometer: isDistance ? odo : null, notes });
+        comp.installedDate = date;
+        if (isDistance) { comp.installedAt = odo; bike.odometer = odo; }
+        await save(); refresh();
+      });
+    });
+  });
+
+  // Delete component from bike
+  document.querySelectorAll('[data-action="del-comp-bike"]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const bike = s.bicycles.find(b => b.id === AppState.maintBikeId);
+      if (!bike) return;
+      if (!confirm('Remove this component?')) return;
+      bike.components = bike.components.filter(c => c.id !== btn.dataset.comp);
+      await save(); refresh();
+    });
+  });
+}
+
 // ── Navigation ────────────────────────────────────────────────────────────────
 
 const viewConfig = {
-  stable:     { title: 'My Stable',  render: renderStableView,     wire: wireStableEvents },
-  calculator: { title: 'Calculator', render: renderCalculatorView, wire: wireCalculatorEvents },
-  library:    { title: 'Library',    render: renderLibraryView,    wire: wireLibraryEvents },
+  stable:      { title: 'My Stable',    render: renderStableView,      wire: wireStableEvents },
+  calculator:  { title: 'Calculator',   render: renderCalculatorView,  wire: wireCalculatorEvents },
+  maintenance: { title: 'Maintenance',  render: renderMaintenanceView, wire: wireMaintenanceEvents },
+  library:     { title: 'Library',      render: renderLibraryView,     wire: wireLibraryEvents },
 };
 
 let currentView = 'stable';
@@ -1158,6 +1510,7 @@ function showView(name) {
   if (!cfg) return;
   currentView = name;
 
+  updateMaintenanceGate();
   document.getElementById('page-title').textContent = cfg.title;
   document.getElementById('main-content').innerHTML = cfg.render();
 
@@ -1176,8 +1529,14 @@ async function handleImport(file) {
       throw new Error('File does not appear to be a valid Stable export.');
     }
     // Migrate fields added after initial release
-    if (!Array.isArray(data.wheelsets))    data.wheelsets    = [];
-    if (!Array.isArray(data.customCranks)) data.customCranks = [];
+    if (!Array.isArray(data.wheelsets))        data.wheelsets        = [];
+    if (!Array.isArray(data.customCranks))     data.customCranks     = [];
+    if (!Array.isArray(data.customComponents)) data.customComponents = [];
+    if (!data.distanceUnit)                    data.distanceUnit     = 'km';
+    for (const b of data.bicycles) {
+      if (typeof b.odometer   !== 'number') b.odometer   = 0;
+      if (!Array.isArray(b.components))     b.components = [];
+    }
     AppState.stable = data;
     migrateNoneBikePools(AppState.stable);
     await DB.save(AppState.stable);
@@ -1215,8 +1574,14 @@ async function init() {
 
   const saved = await DB.load();
   // Migrate stables saved before these fields were added
-  if (saved && !Array.isArray(saved.wheelsets))    saved.wheelsets    = [];
-  if (saved && !Array.isArray(saved.customCranks)) saved.customCranks = [];
+  if (saved && !Array.isArray(saved.wheelsets))        saved.wheelsets        = [];
+  if (saved && !Array.isArray(saved.customCranks))     saved.customCranks     = [];
+  if (saved && !Array.isArray(saved.customComponents)) saved.customComponents = [];
+  if (saved && !saved.distanceUnit)                    saved.distanceUnit     = 'km';
+  if (saved) for (const b of saved.bicycles) {
+    if (typeof b.odometer   !== 'number') b.odometer   = 0;
+    if (!Array.isArray(b.components))     b.components = [];
+  }
   AppState.stable = saved || makeStable();
   if (saved) migrateNoneBikePools(AppState.stable);
   if (!saved) await DB.save(AppState.stable);

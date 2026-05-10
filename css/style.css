@@ -543,3 +543,87 @@ table.gear-table td.cell-fitted {
   user-select: none;
 }
 .picker-item:active { background: #f5f0e8; }
+
+/* ── Maintenance view ────────────────────────────────────────────────────── */
+.maint-settings {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--clr-border);
+  margin-bottom: 0.75rem;
+}
+.maint-odometer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.maint-odometer input[type="number"] { width: 7rem; }
+
+.component-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--clr-border);
+}
+.component-row:last-of-type { border-bottom: none; }
+.status-dot {
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.status-green  { background: #2ecc71; }
+.status-orange { background: #f39c12; }
+.status-red    { background: #e74c3c; }
+.component-info { flex: 1; min-width: 0; }
+.component-name { font-weight: 600; font-size: 0.95rem; }
+.component-progress {
+  font-size: 0.78rem;
+  color: var(--clr-muted);
+  margin-top: 0.1rem;
+}
+.component-actions { display: flex; gap: 0.4rem; flex-shrink: 0; }
+
+.history-section { margin-top: 1.5rem; }
+.history-toggle {
+  background: none;
+  border: none;
+  font-size: 0.875rem;
+  color: var(--clr-muted);
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.history-entry {
+  font-size: 0.8rem;
+  color: var(--clr-muted);
+  padding: 0.35rem 0;
+  border-bottom: 1px solid var(--clr-border);
+  display: flex;
+  gap: 0.75rem;
+}
+.history-entry:last-child { border-bottom: none; }
+.history-date { flex-shrink: 0; font-weight: 600; }
+
+.maint-section-heading {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--clr-muted);
+  margin: 1rem 0 0.4rem;
+}
+
+/* Replace confirmation mini-form */
+.replace-form {
+  background: var(--clr-cream);
+  border: 1px solid var(--clr-border);
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+}

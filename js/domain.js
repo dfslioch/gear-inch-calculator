@@ -95,6 +95,22 @@ const CrankLengths = Object.freeze([
   { name: '180mm',   microns: 180000 },
 ]);
 
+// Built-in component library for maintenance tracking.
+// lifeUnit: 'km' | 'mi' | 'days' | 'months' | 'years'
+const ComponentLibrary = Object.freeze([
+  { name: 'Chain',             defaultLife: 2000,  lifeUnit: 'km'     },
+  { name: 'Cassette',          defaultLife: 10000, lifeUnit: 'km'     },
+  { name: 'Sprocket',          defaultLife: 5000,  lifeUnit: 'km'     },
+  { name: 'Chain rings',       defaultLife: 20000, lifeUnit: 'km'     },
+  { name: 'Rear tyre',         defaultLife: 3000,  lifeUnit: 'km'     },
+  { name: 'Front tyre',        defaultLife: 5000,  lifeUnit: 'km'     },
+  { name: 'Brake pads',        defaultLife: 3000,  lifeUnit: 'km'     },
+  { name: 'Cables & housing',  defaultLife: 2,     lifeUnit: 'years'  },
+  { name: 'Bar tape',          defaultLife: 12,    lifeUnit: 'months' },
+  { name: 'Bottom bracket',    defaultLife: 20000, lifeUnit: 'km'     },
+  { name: 'Jockey wheels',     defaultLife: 15000, lifeUnit: 'km'     },
+]);
+
 // ── Hub factories ─────────────────────────────────────────────────────────────
 
 // Single-sided hub: one sprocket, fixed or freewheel.
@@ -178,6 +194,9 @@ function makeBicycle({
   sprocketPool     = [],   // [{ toothCount, isFixed }] — all available sprockets
   fittedChainRing  = null, // number | null — currently fitted chainring (for highlighting)
   fittedSprockets  = [],   // number[] — fitted sprocket tooth counts (1 or 2 for flip-flop)
+  // Maintenance
+  odometer         = 0,    // current total distance (in stable.distanceUnit)
+  components       = [],   // [makeComponent(...)] — installed components
   id               = null,
 } = {}) {
   const bike = {
@@ -192,6 +211,8 @@ function makeBicycle({
     sprocketPool,
     fittedChainRing,
     fittedSprockets,
+    odometer,
+    components,
   };
   if (bike.wheelsetIds.length > 0 && !bike.activeWheelsetId) {
     bike.activeWheelsetId = bike.wheelsetIds[0];
@@ -204,12 +225,27 @@ function makeBicycle({
 function makeStable(name = 'My Stable') {
   return {
     name,
-    bicycles:     [],
-    wheelsets:    [],   // independent wheelset pool; bikes reference by ID
-    customRims:   [],   // user-added rim entries:   [{ name, bsd }]
-    customTyres:  [],   // user-added tyre entries:  [{ name, width }]
-    customCranks: [],   // user-added crank entries: [{ name, microns }]
+    bicycles:         [],
+    wheelsets:        [],   // independent wheelset pool; bikes reference by ID
+    customRims:       [],   // user-added rim entries:       [{ name, bsd }]
+    customTyres:      [],   // user-added tyre entries:      [{ name, width }]
+    customCranks:     [],   // user-added crank entries:     [{ name, microns }]
+    customComponents: [],   // user-added component entries: [{ name, defaultLife, lifeUnit }]
+    distanceUnit:     'km', // 'km' | 'mi' — used for odometer and distance-based component life
   };
+}
+
+// ── Maintenance component factory ─────────────────────────────────────────────
+
+function makeComponent({
+  name        = '',
+  expectedLife = 0,
+  lifeUnit    = 'km',   // 'km' | 'mi' | 'days' | 'months' | 'years'
+  installedAt = null,   // odometer reading when installed; null for time-only components
+  installedDate = new Date().toISOString().slice(0, 10),
+  notes       = '',
+} = {}) {
+  return { id: newId(), name, expectedLife, lifeUnit, installedAt, installedDate, notes, history: [] };
 }
 
 // ── Domain helper functions ───────────────────────────────────────────────────
@@ -257,6 +293,11 @@ function getTyreLibrary(stable) {
 // Full crank length library including user-added custom entries.
 function getCrankLibrary(stable) {
   return [...CrankLengths, ...(stable.customCranks || [])];
+}
+
+// Full component library including user-added custom entries.
+function getComponentLibrary(stable) {
+  return [...ComponentLibrary, ...(stable.customComponents || [])];
 }
 
 // Compatibility check: can this wheelset be fitted to this bike?
