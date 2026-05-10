@@ -1256,6 +1256,7 @@ function renderMaintenanceView() {
         <div class="component-progress">${progress}${comp.notes ? ' · ' + escHtml(comp.notes) : ''}</div>
       </div>
       <div class="component-actions">
+        <button class="btn-sm" data-action="edit-comp"    data-comp="${comp.id}">Edit</button>
         <button class="btn-sm" data-action="replace-comp" data-comp="${comp.id}">Replace</button>
         <button class="btn-sm danger" data-action="del-comp-bike" data-comp="${comp.id}">&#x2715;</button>
       </div>
@@ -1439,6 +1440,76 @@ function wireMaintenanceEvents() {
     if (!name || !(life > 0)) { alert('Please enter a component name and expected life.'); return; }
     bike.components.push(makeComponent({ name, expectedLife: life, lifeUnit, installedAt: instOdo, installedDate: instDate, notes }));
     await save(); refresh();
+  });
+
+  // Edit component
+  document.querySelectorAll('[data-action="edit-comp"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const compId  = btn.dataset.comp;
+      const bike    = s.bicycles.find(b => b.id === AppState.maintBikeId);
+      const comp    = bike?.components.find(c => c.id === compId);
+      if (!comp) return;
+      const unit    = s.distanceUnit;
+      const isDistance = comp.lifeUnit === 'km' || comp.lifeUnit === 'mi';
+      const container = document.getElementById('replace-form-container');
+      container.innerHTML = `
+        <div class="replace-form" id="edit-form-${compId}">
+          <strong>Edit — ${escHtml(comp.name)}</strong>
+          <div class="form-row"><label>Name</label>
+            <input type="text" id="edit-name-${compId}" value="${escHtml(comp.name)}" autocomplete="off">
+          </div>
+          <div class="form-row"><label>Expected life</label>
+            <input type="number" id="edit-life-${compId}" value="${comp.expectedLife}" min="1">
+          </div>
+          <div class="form-row"><label>Unit</label>
+            <select id="edit-unit-${compId}">
+              <option value="km"${comp.lifeUnit==='km'?' selected':''}>km</option>
+              <option value="mi"${comp.lifeUnit==='mi'?' selected':''}>miles</option>
+              <option value="months"${comp.lifeUnit==='months'?' selected':''}>months</option>
+              <option value="years"${comp.lifeUnit==='years'?' selected':''}>years</option>
+            </select>
+          </div>
+          <div class="form-row"><label>Install date</label>
+            <input type="date" id="edit-date-${compId}" value="${comp.installedDate}">
+          </div>
+          <div class="form-row" id="edit-odo-row-${compId}"${isDistance ? '' : ' hidden'}>
+            <label>Install odometer (${unit})</label>
+            <input type="number" id="edit-odo-${compId}" value="${comp.installedAt ?? ''}" min="0">
+          </div>
+          <div class="form-row"><label>Notes</label>
+            <input type="text" id="edit-notes-${compId}" value="${escHtml(comp.notes)}" autocomplete="off">
+          </div>
+          <div class="library-add-actions">
+            <button class="btn-secondary" id="edit-cancel-${compId}">Cancel</button>
+            <button class="btn-primary"   id="edit-save-${compId}">Save</button>
+          </div>
+        </div>`;
+
+      document.getElementById(`edit-unit-${compId}`)?.addEventListener('change', e => {
+        const dist = e.target.value === 'km' || e.target.value === 'mi';
+        document.getElementById(`edit-odo-row-${compId}`).hidden = !dist;
+      });
+      document.getElementById(`edit-cancel-${compId}`)?.addEventListener('click', () => {
+        container.innerHTML = '';
+      });
+      document.getElementById(`edit-save-${compId}`)?.addEventListener('click', async () => {
+        const name     = document.getElementById(`edit-name-${compId}`).value.trim();
+        const life     = parseFloat(document.getElementById(`edit-life-${compId}`).value);
+        const lifeUnit = document.getElementById(`edit-unit-${compId}`).value;
+        const date     = document.getElementById(`edit-date-${compId}`).value;
+        const isDist   = lifeUnit === 'km' || lifeUnit === 'mi';
+        const odo      = isDist ? parseFloat(document.getElementById(`edit-odo-${compId}`).value) : null;
+        const notes    = document.getElementById(`edit-notes-${compId}`).value.trim();
+        if (!name || !(life > 0)) { alert('Please enter a name and expected life.'); return; }
+        comp.name         = name;
+        comp.expectedLife = life;
+        comp.lifeUnit     = lifeUnit;
+        comp.installedDate = date;
+        comp.installedAt  = isDist ? odo : null;
+        comp.notes        = notes;
+        await save(); refresh();
+      });
+    });
   });
 
   // Replace component
