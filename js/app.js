@@ -1184,24 +1184,28 @@ function showEditWheelsetForm(wheelsetId) {
 
 // ── View: Maintenance ─────────────────────────────────────────────────────────
 
-function componentStatus(comp, bike) {
-  const today = new Date();
-  let pct = 0;
+// Returns wear as a fraction (0–1+), or null if not calculable.
+function componentWearPct(comp, bike) {
   const unit = comp.lifeUnit;
   if (unit === 'km' || unit === 'mi') {
     if (comp.installedAt === null || !comp.expectedLife) return null;
-    pct = (bike.odometer - comp.installedAt) / comp.expectedLife;
-  } else {
-    if (!comp.installedDate || !comp.expectedLife) return null;
-    const installed = new Date(comp.installedDate);
-    let elapsed;
-    if (unit === 'days')   elapsed = (today - installed) / 86400000;
-    if (unit === 'months') elapsed = (today - installed) / (86400000 * 30.44);
-    if (unit === 'years')  elapsed = (today - installed) / (86400000 * 365.25);
-    pct = elapsed / comp.expectedLife;
+    return (bike.odometer - comp.installedAt) / comp.expectedLife;
   }
-  if (pct < 0.75) return 'green';
-  if (pct < 0.95) return 'orange';
+  if (!comp.installedDate || !comp.expectedLife) return null;
+  const today     = new Date();
+  const installed = new Date(comp.installedDate);
+  let elapsed;
+  if (unit === 'days')   elapsed = (today - installed) / 86400000;
+  if (unit === 'months') elapsed = (today - installed) / (86400000 * 30.44);
+  if (unit === 'years')  elapsed = (today - installed) / (86400000 * 365.25);
+  return elapsed / comp.expectedLife;
+}
+
+function componentStatus(comp, bike) {
+  const pct = componentWearPct(comp, bike);
+  if (pct === null) return null;
+  if (pct < 0.75)   return 'green';
+  if (pct < 0.95)   return 'orange';
   return 'red';
 }
 
@@ -1236,12 +1240,11 @@ function renderMaintenanceView() {
   const bike   = s.bicycles.find(b => b.id === selId);
   const unit   = s.distanceUnit;
 
-  // Components sorted: red first, then orange, then green, then no-status
-  const order = { red: 0, orange: 1, green: 2, null: 3 };
+  // Components sorted by % wear descending; uncalculable ones go to the bottom.
   const sorted = [...(bike.components || [])].sort((a, b) => {
-    const sa = componentStatus(a, bike) ?? 'null';
-    const sb = componentStatus(b, bike) ?? 'null';
-    return (order[sa] ?? 3) - (order[sb] ?? 3);
+    const pa = componentWearPct(a, bike) ?? -Infinity;
+    const pb = componentWearPct(b, bike) ?? -Infinity;
+    return pb - pa;
   });
 
   const compRows = sorted.map(comp => {
