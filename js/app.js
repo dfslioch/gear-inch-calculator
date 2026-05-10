@@ -172,7 +172,7 @@ function renderCalculatorView() {
     </div>
     <div id="calc-results"></div>
     <aside class="help-text">
-      <p><strong>Gear inches</strong> describe the effective wheel diameter after the drivetrain ratio is applied — a higher number means a harder, faster gear. <strong>Metres of development</strong> is the distance travelled per pedal revolution.</p>
+      <p><strong>Gear inches</strong> describe the effective wheel diameter after the drivetrain ratio is applied — a higher number means a harder, faster gear. <strong>Gain ratio</strong> is a dimensionless measure of the same thing that accounts for crank length, making it more useful for comparing bikes with different cranks. <strong>Metres of development</strong> is the distance travelled per pedal revolution.</p>
       <p>For track bikes, <strong>skid patches</strong> shows how many distinct tyre contact points are used when skidding — more patches means the tyre wears more evenly.</p>
       <p>For hub gear bikes, each column represents one internal gear, with its ratio shown beneath the gear number.</p>
     </aside>
@@ -250,6 +250,18 @@ function renderCalcResults(bike, cadence) {
     }
     html += '</tbody></table></div>';
 
+    // Gain Ratio
+    const crankIGH = bike.crankSet.crankLengthMicrons;
+    html += `<h3 style="margin:1rem 0 0.5rem">Gain Ratio</h3>
+      <div class="gear-table-wrap"><table class="gear-table">
+      <thead><tr><th>Ring</th>${gearHeaders}</tr></thead><tbody>`;
+    for (const ring of rings) {
+      const baseGR = GearCalc.gainRatio(ws.rimBsd, ws.tyreWidth, crankIGH, ring.toothCount, sp.toothCount);
+      const cells  = ratios.map(r => `<td>${(baseGR * r).toFixed(2)}</td>`).join('');
+      html += `<tr><td>${ring.toothCount}t</td>${cells}</tr>`;
+    }
+    html += '</tbody></table></div>';
+
     // Metres of Development
     html += `<h3 style="margin:1rem 0 0.5rem">Metres of Development</h3>
       <div class="gear-table-wrap"><table class="gear-table">
@@ -301,6 +313,21 @@ function renderCalcResults(bike, cadence) {
     const cells = sprockets.map(sp => {
       const gi = GearCalc.gearInches(ws.rimBsd, ws.tyreWidth, ring.toothCount, sp.toothCount);
       return `<td>${gi.toFixed(1)}</td>`;
+    }).join('');
+    html += `<tr><td>${ring.toothCount}t</td>${cells}</tr>`;
+  }
+  html += '</tbody></table></div>';
+
+  const crankLen = bike.crankSet.crankLengthMicrons;
+
+  html += `<h3 style="margin:1rem 0 0.5rem">Gain Ratio</h3>
+    <div class="gear-table-wrap"><table class="gear-table">
+    <thead><tr><th>Ring</th>${headers}</tr></thead><tbody>`;
+
+  for (const ring of rings) {
+    const cells = sprockets.map(sp => {
+      const gr = GearCalc.gainRatio(ws.rimBsd, ws.tyreWidth, crankLen, ring.toothCount, sp.toothCount);
+      return `<td>${gr.toFixed(2)}</td>`;
     }).join('');
     html += `<tr><td>${ring.toothCount}t</td>${cells}</tr>`;
   }
@@ -375,6 +402,19 @@ function renderCalcResultsFromPool(bike, ws, cadence) {
   for (const t of chainRings) {
     const cells = sprockets.map(sp =>
       cell(GearCalc.gearInches(ws.rimBsd, ws.tyreWidth, t, sp.toothCount).toFixed(1), t, sp.toothCount)
+    ).join('');
+    html += `<tr><td>${ringLabel(t)}</td>${cells}</tr>`;
+  }
+  html += '</tbody></table></div>';
+
+  // Gain Ratio
+  const crankPool = bike.crankSet.crankLengthMicrons;
+  html += `<h3 style="margin:1rem 0 0.5rem">Gain Ratio</h3>
+    <div class="gear-table-wrap"><table class="gear-table">
+    <thead><tr><th>Ring</th>${headers}</tr></thead><tbody>`;
+  for (const t of chainRings) {
+    const cells = sprockets.map(sp =>
+      cell(GearCalc.gainRatio(ws.rimBsd, ws.tyreWidth, crankPool, t, sp.toothCount).toFixed(2), t, sp.toothCount)
     ).join('');
     html += `<tr><td>${ringLabel(t)}</td>${cells}</tr>`;
   }
