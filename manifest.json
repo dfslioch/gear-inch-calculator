@@ -1,0 +1,13 @@
+{
+  "name": "Gear Inch Calculator",
+  "short_name": "GearCalc",
+  "description": "Gear inch calculator for track, road and gravel cyclists",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fdfbf7",
+  "theme_color": "#164e58",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

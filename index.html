@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#164e58">
+  <meta name="description" content="Gear inch calculator for track, road and gravel cyclists">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="GearCalc">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/style.css">
+  <title>Gear Inch Calculator</title>
+</head>
+<body>
+
+  <header>
+    <h1 id="page-title">My Stable</h1>
+    <div class="header-actions">
+      <button id="btn-export" class="header-btn" title="Export stable to JSON">Export</button>
+      <label id="btn-import-label" class="header-btn" title="Import stable from JSON">
+        Import
+        <input id="btn-import" type="file" accept=".json" hidden>
+      </label>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <p class="loading">Loading...</p>
+  </main>
+
+  <nav id="bottom-nav">
+    <button class="nav-btn active" data-view="stable">Stable</button>
+    <button class="nav-btn" data-view="calculator">Calculator</button>
+    <button class="nav-btn" data-view="library">Library</button>
+  </nav>
+
+  <script src="js/calc.js"></script>
+  <script src="js/domain.js"></script>
+  <script src="js/db.js"></script>
+  <script src="js/forms.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
