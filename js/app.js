@@ -8,7 +8,9 @@ const AppState = { stable: null, maintBikeId: null };
 // ── Feature gate ──────────────────────────────────────────────────────────────
 
 function isMaintenanceEnabled() {
-  return (AppState.stable?.bicycles || []).some(b => b.name.toLowerCase() === 'admin');
+  return true;
+  // Gate: uncomment to restrict to stables containing a bike named 'admin'
+  // return (AppState.stable?.bicycles || []).some(b => b.name.toLowerCase() === 'admin');
 }
 
 function updateMaintenanceGate() {
