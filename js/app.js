@@ -1386,7 +1386,14 @@ function renderMaintenanceView() {
       <div id="history-body" hidden>
         ${allHistory.length ? historyRows : '<p class="detail-empty" style="margin-top:0.5rem">No history yet.</p>'}
       </div>
-    </div>`;
+    </div>
+
+    <aside class="help-text">
+      <p>Track the wear on each bike's components using its odometer. Update the odometer reading periodically from your ride tracker (e.g. Strava's My Gear page) — you don't need to log every ride.</p>
+      <p>The <strong>traffic light dot</strong> shows wear at a glance: 🟢 under 75%, 🟠 75–95%, 🔴 over 95% of expected life. Components are sorted worst-first so the most urgent items are always at the top.</p>
+      <p>Use <strong>Replace</strong> when a component is swapped out — this logs the event to history and resets the counter. Use <strong>Edit</strong> to correct the install date, odometer, or expected life at any time. Use <strong>Log maintenance session</strong> to record a service visit without replacing a specific component.</p>
+      <p>The component library (under the Library tab) holds default expected lifespans. These are starting points — adjust them to match your conditions and riding style.</p>
+    </aside>`;
 }
 
 function wireMaintenanceEvents() {
