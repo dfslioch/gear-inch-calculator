@@ -50,6 +50,9 @@ header h1 { font-size: 1.1rem; font-weight: 600; flex: 1; letter-spacing: 0.02em
   padding: 3px 7px;
   background: rgba(255, 253, 246, 0.92);
 }
+@media (max-width: 480px) {
+  .header-logo { padding: 3px; border-radius: 6px; }
+}
 
 .header-actions { display: flex; gap: 0.5rem; }
 .header-btn {
