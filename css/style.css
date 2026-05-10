@@ -609,6 +609,7 @@ table.gear-table td.cell-fitted {
 }
 .history-entry:last-child { border-bottom: none; }
 .history-date { flex-shrink: 0; font-weight: 600; }
+.history-odo  { opacity: 0.7; }
 
 .maint-section-heading {
   font-size: 0.75rem;

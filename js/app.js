@@ -1263,19 +1263,29 @@ function renderMaintenanceView() {
     </div>`;
   }).join('');
 
-  // History: all components' history merged and sorted newest-first
+  // History: component replacements + free-form log, merged newest-first
   const allHistory = [];
   for (const comp of (bike.components || [])) {
     for (const h of (comp.history || [])) {
-      allHistory.push({ ...h, compName: comp.name });
+      allHistory.push({ ...h, kind: 'replacement', compName: comp.name });
     }
   }
+  for (const entry of (bike.maintenanceLog || [])) {
+    allHistory.push({ ...entry, kind: 'session' });
+  }
   allHistory.sort((a, b) => b.date.localeCompare(a.date));
-  const historyRows = allHistory.map(h =>
-    `<div class="history-entry">
+  const historyRows = allHistory.map(h => {
+    let detail;
+    if (h.kind === 'session') {
+      detail = `&#128295; ${escHtml(h.notes)}${h.odometer !== null && h.odometer !== undefined ? ` <span class="history-odo">@ ${h.odometer.toLocaleString()} ${unit}</span>` : ''}`;
+    } else {
+      detail = `${escHtml(h.compName)} replaced${h.odometer !== null ? ` @ ${h.odometer.toLocaleString()} ${unit}` : ''}${h.notes ? ' — ' + escHtml(h.notes) : ''}`;
+    }
+    return `<div class="history-entry">
       <span class="history-date">${h.date}</span>
-      <span>${escHtml(h.compName)} replaced${h.odometer !== null ? ` at ${h.odometer.toLocaleString()} ${unit}` : ''}${h.notes ? ' — ' + escHtml(h.notes) : ''}</span>
-    </div>`).join('');
+      <span>${detail}</span>
+    </div>`;
+  }).join('');
 
   // Component library dropdown
   const libOptions = getComponentLibrary(s).map(c =>
@@ -1344,6 +1354,25 @@ function renderMaintenanceView() {
     </div>
 
     <div id="replace-form-container"></div>
+
+    <div style="margin-top:1rem">
+      <button id="btn-log-session" class="btn-sm btn-primary">+ Log maintenance session</button>
+      <div id="log-session-form" class="replace-form" hidden style="margin-top:0.5rem">
+        <div class="form-row"><label>Date</label>
+          <input type="date" id="log-date" value="${new Date().toISOString().slice(0,10)}">
+        </div>
+        <div class="form-row"><label>Odometer (${unit})</label>
+          <input type="number" id="log-odo" value="${bike.odometer}" min="0">
+        </div>
+        <div class="form-row"><label>Notes</label>
+          <input type="text" id="log-notes" placeholder="e.g. reindex gears, clean drivetrain" autocomplete="off">
+        </div>
+        <div class="library-add-actions">
+          <button class="btn-secondary" id="log-cancel">Cancel</button>
+          <button class="btn-primary"   id="log-save">Log</button>
+        </div>
+      </div>
+    </div>
 
     <div class="history-section">
       <button class="history-toggle" id="btn-history-toggle">
@@ -1439,6 +1468,25 @@ function wireMaintenanceEvents() {
     const notes     = document.getElementById('comp-notes').value.trim();
     if (!name || !(life > 0)) { alert('Please enter a component name and expected life.'); return; }
     bike.components.push(makeComponent({ name, expectedLife: life, lifeUnit, installedAt: instOdo, installedDate: instDate, notes }));
+    await save(); refresh();
+  });
+
+  // Log maintenance session
+  document.getElementById('btn-log-session')?.addEventListener('click', () => {
+    const form = document.getElementById('log-session-form');
+    form.hidden = !form.hidden;
+  });
+  document.getElementById('log-cancel')?.addEventListener('click', () => {
+    document.getElementById('log-session-form').hidden = true;
+  });
+  document.getElementById('log-save')?.addEventListener('click', async () => {
+    const bike  = s.bicycles.find(b => b.id === AppState.maintBikeId);
+    if (!bike) return;
+    const notes = document.getElementById('log-notes').value.trim();
+    if (!notes) { alert('Please enter a note describing the maintenance.'); return; }
+    const date  = document.getElementById('log-date').value;
+    const odo   = parseFloat(document.getElementById('log-odo').value);
+    bike.maintenanceLog.push({ id: newId(), date, odometer: isNaN(odo) ? null : odo, notes });
     await save(); refresh();
   });
 
@@ -1605,8 +1653,9 @@ async function handleImport(file) {
     if (!Array.isArray(data.customComponents)) data.customComponents = [];
     if (!data.distanceUnit)                    data.distanceUnit     = 'km';
     for (const b of data.bicycles) {
-      if (typeof b.odometer   !== 'number') b.odometer   = 0;
-      if (!Array.isArray(b.components))     b.components = [];
+      if (typeof b.odometer       !== 'number') b.odometer       = 0;
+      if (!Array.isArray(b.components))         b.components     = [];
+      if (!Array.isArray(b.maintenanceLog))     b.maintenanceLog = [];
     }
     AppState.stable = data;
     migrateNoneBikePools(AppState.stable);
@@ -1650,8 +1699,9 @@ async function init() {
   if (saved && !Array.isArray(saved.customComponents)) saved.customComponents = [];
   if (saved && !saved.distanceUnit)                    saved.distanceUnit     = 'km';
   if (saved) for (const b of saved.bicycles) {
-    if (typeof b.odometer   !== 'number') b.odometer   = 0;
-    if (!Array.isArray(b.components))     b.components = [];
+    if (typeof b.odometer       !== 'number') b.odometer       = 0;
+    if (!Array.isArray(b.components))         b.components     = [];
+    if (!Array.isArray(b.maintenanceLog))     b.maintenanceLog = [];
   }
   AppState.stable = saved || makeStable();
   if (saved) migrateNoneBikePools(AppState.stable);

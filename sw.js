@@ -1,7 +1,7 @@
 // Service Worker — cache-first strategy for offline use.
 // Bump CACHE version when any app file changes to force clients to update.
 
-const CACHE  = 'gearcalc-v24';
+const CACHE  = 'gearcalc-v25';
 const ASSETS = [
   './',
   './index.html',

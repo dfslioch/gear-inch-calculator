@@ -197,6 +197,7 @@ function makeBicycle({
   // Maintenance
   odometer         = 0,    // current total distance (in stable.distanceUnit)
   components       = [],   // [makeComponent(...)] — installed components
+  maintenanceLog   = [],   // [{ id, date, odometer, notes }] — free-form session log
   id               = null,
 } = {}) {
   const bike = {
@@ -213,6 +214,7 @@ function makeBicycle({
     fittedSprockets,
     odometer,
     components,
+    maintenanceLog,
   };
   if (bike.wheelsetIds.length > 0 && !bike.activeWheelsetId) {
     bike.activeWheelsetId = bike.wheelsetIds[0];
