@@ -250,6 +250,17 @@ function renderCalcResults(bike, cadence) {
     }
     html += '</tbody></table></div>';
 
+    // Metres of Development
+    html += `<h3 style="margin:1rem 0 0.5rem">Metres of Development</h3>
+      <div class="gear-table-wrap"><table class="gear-table">
+      <thead><tr><th>Ring</th>${gearHeaders}</tr></thead><tbody>`;
+    for (const ring of rings) {
+      const baseMD = GearCalc.metresDevelopment(ws.rimBsd, ws.tyreWidth, ring.toothCount, sp.toothCount);
+      const cells  = ratios.map(r => `<td>${(baseMD * r).toFixed(2)}</td>`).join('');
+      html += `<tr><td>${ring.toothCount}t</td>${cells}</tr>`;
+    }
+    html += '</tbody></table></div>';
+
     // Speed
     html += `<h3 style="margin:1rem 0 0.5rem">Speed at ${cadence} rpm (km/h)</h3>
       <div class="gear-table-wrap"><table class="gear-table">
@@ -290,6 +301,19 @@ function renderCalcResults(bike, cadence) {
     const cells = sprockets.map(sp => {
       const gi = GearCalc.gearInches(ws.rimBsd, ws.tyreWidth, ring.toothCount, sp.toothCount);
       return `<td>${gi.toFixed(1)}</td>`;
+    }).join('');
+    html += `<tr><td>${ring.toothCount}t</td>${cells}</tr>`;
+  }
+  html += '</tbody></table></div>';
+
+  html += `<h3 style="margin:1rem 0 0.5rem">Metres of Development</h3>
+    <div class="gear-table-wrap"><table class="gear-table">
+    <thead><tr><th>Ring</th>${headers}</tr></thead><tbody>`;
+
+  for (const ring of rings) {
+    const cells = sprockets.map(sp => {
+      const md = GearCalc.metresDevelopment(ws.rimBsd, ws.tyreWidth, ring.toothCount, sp.toothCount);
+      return `<td>${md.toFixed(2)}</td>`;
     }).join('');
     html += `<tr><td>${ring.toothCount}t</td>${cells}</tr>`;
   }
@@ -351,6 +375,18 @@ function renderCalcResultsFromPool(bike, ws, cadence) {
   for (const t of chainRings) {
     const cells = sprockets.map(sp =>
       cell(GearCalc.gearInches(ws.rimBsd, ws.tyreWidth, t, sp.toothCount).toFixed(1), t, sp.toothCount)
+    ).join('');
+    html += `<tr><td>${ringLabel(t)}</td>${cells}</tr>`;
+  }
+  html += '</tbody></table></div>';
+
+  // Metres of Development
+  html += `<h3 style="margin:1rem 0 0.5rem">Metres of Development</h3>
+    <div class="gear-table-wrap"><table class="gear-table">
+    <thead><tr><th>Ring</th>${headers}</tr></thead><tbody>`;
+  for (const t of chainRings) {
+    const cells = sprockets.map(sp =>
+      cell(GearCalc.metresDevelopment(ws.rimBsd, ws.tyreWidth, t, sp.toothCount).toFixed(2), t, sp.toothCount)
     ).join('');
     html += `<tr><td>${ringLabel(t)}</td>${cells}</tr>`;
   }
