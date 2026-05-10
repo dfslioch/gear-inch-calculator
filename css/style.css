@@ -455,6 +455,17 @@ table.gear-table td.cell-fitted {
 .detail-label { color: var(--clr-muted); flex-shrink: 0; }
 .detail-empty { color: var(--clr-muted); font-size: 0.875rem; padding: 0.25rem 0; }
 
+/* ── Help text ───────────────────────────────────────────────────────────── */
+.help-text {
+  margin: 2rem 0 1rem;
+  padding: 0.875rem 1rem;
+  border-top: 1px solid var(--clr-border);
+  color: var(--clr-muted);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+.help-text p + p { margin-top: 0.5rem; }
+
 /* ── Assigned wheelset rows ──────────────────────────────────────────────── */
 .wheelset-row {
   display: flex;

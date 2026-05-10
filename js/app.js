@@ -74,11 +74,16 @@ function wireStableEvents() {
 
 function renderBikesSubView() {
   const s = AppState.stable;
+  const help = `<aside class="help-text">
+    <p>Your stable holds all your bikes. Each bike has a drivetrain type — no shifters (track/single-speed), geared (cassette), or internal hub gear — plus a crankset and one or more wheelsets.</p>
+    <p>Tap a bike to view its details, assign wheelsets, manage its parts pool, and run gear calculations.</p>
+  </aside>`;
+
   if (!s.bicycles.length) {
     return `<div class="empty-state">
       <p>No bikes in your stable yet.</p>
       <button id="btn-add-bike" class="btn-primary">Add your first bike</button>
-    </div>`;
+    </div>${help}`;
   }
 
   const items = s.bicycles.map(bike => {
@@ -91,7 +96,8 @@ function renderBikesSubView() {
   }).join('');
 
   return `<ul class="bike-list">${items}</ul>
-    <button id="btn-add-bike" class="btn-primary btn-fab" aria-label="Add bike">+</button>`;
+    <button id="btn-add-bike" class="btn-primary btn-fab" aria-label="Add bike">+</button>
+    ${help}`;
 }
 
 function wireBikesSubView() {
@@ -105,11 +111,16 @@ function wireBikesSubView() {
 
 function renderWheelsetsSubView() {
   const s = AppState.stable;
+  const help = `<aside class="help-text">
+    <p>Wheelsets combine a rim, tyre, and hub and are shared across your stable. A wheelset can be assigned to any compatible bike — compatibility is determined by hub type and the bike's shifter type.</p>
+    <p>Create wheelsets here first, then assign them to bikes from the bike detail view.</p>
+  </aside>`;
+
   if (!s.wheelsets.length) {
     return `<div class="empty-state">
       <p>No wheelsets yet.</p>
       <button id="btn-add-wheelset" class="btn-primary">Add your first wheelset</button>
-    </div>`;
+    </div>${help}`;
   }
 
   const items = s.wheelsets.map(ws => {
@@ -125,7 +136,8 @@ function renderWheelsetsSubView() {
   }).join('');
 
   return `<ul class="bike-list">${items}</ul>
-    <button id="btn-add-wheelset" class="btn-primary btn-fab" aria-label="Add wheelset">+</button>`;
+    <button id="btn-add-wheelset" class="btn-primary btn-fab" aria-label="Add wheelset">+</button>
+    ${help}`;
 }
 
 function wireWheelsetsSubView() {
@@ -159,6 +171,11 @@ function renderCalculatorView() {
       <input id="calc-cadence" type="number" value="90" min="40" max="200">
     </div>
     <div id="calc-results"></div>
+    <aside class="help-text">
+      <p><strong>Gear inches</strong> describe the effective wheel diameter after the drivetrain ratio is applied — a higher number means a harder, faster gear. <strong>Metres of development</strong> is the distance travelled per pedal revolution.</p>
+      <p>For track bikes, <strong>skid patches</strong> shows how many distinct tyre contact points are used when skidding — more patches means the tyre wears more evenly.</p>
+      <p>For hub gear bikes, each column represents one internal gear, with its ratio shown beneath the gear number.</p>
+    </aside>
   </div>`;
 }
 
@@ -448,7 +465,11 @@ function renderLibraryView() {
   + section('Crank lengths', 'crank-body', 'add-crank-form',
     crankItems, addForm('add-crank-form', `
       <div class="form-row"><label>Name</label><input id="crank-name" type="text" placeholder="e.g. 167.5mm" autocomplete="off"></div>
-      <div class="form-row"><label>Length (mm)</label><input id="crank-len" type="number" placeholder="e.g. 167.5" inputmode="decimal" step="0.5"></div>`));
+      <div class="form-row"><label>Length (mm)</label><input id="crank-len" type="number" placeholder="e.g. 167.5" inputmode="decimal" step="0.5"></div>`))
+  + `<aside class="help-text">
+      <p>The library holds the rim sizes, tyre widths, and crank lengths available when building bikes and wheelsets. Built-in entries cover the most common standards and cannot be deleted.</p>
+      <p>Add custom entries for less common sizes — they appear alongside the built-in list and can be removed at any time.</p>
+    </aside>`;
 }
 
 function wireLibraryEvents() {
